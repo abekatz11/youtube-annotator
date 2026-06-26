@@ -94,24 +94,40 @@ function renderSignInPrompt(content) {
     <button class="citelines-studio-btn citelines-studio-btn-youtube">&#9654; Sign in with YouTube</button>
   `;
 
-  prompt.querySelector('.citelines-studio-btn-youtube').addEventListener('click', async () => {
+  const signInBtn = prompt.querySelector('.citelines-studio-btn-youtube');
+  signInBtn.addEventListener('click', async () => {
+    if (!window.loginWithYouTube) {
+      console.error('[Studio] loginWithYouTube unavailable');
+      return;
+    }
+    const originalLabel = signInBtn.innerHTML;
+    signInBtn.disabled = true;
     try {
-      // Use the YouTube OAuth flow from youtubeAuth.js
-      if (window.launchYouTubeOAuth) {
-        await window.launchYouTubeOAuth();
-        // After successful login, re-initialize
-        if (authManager.isLoggedIn()) {
-          const videoId = state.currentVideoId;
-          if (videoId) {
-            const { fetchOwnCitations } = await import('./storage.js');
-            await fetchOwnCitations(videoId);
-            createSidebar(videoId);
-            renderStudioMarkers();
-          }
+      // Full login flow: OAuth + backend /api/auth/youtube + token storage.
+      // Mirrors loginUI.handleYouTubeAuth on the watch page.
+      const anonymousId = await api.initialize();
+      await window.loginWithYouTube(api, authManager, null, anonymousId, (msg) => {
+        signInBtn.textContent = msg;
+      });
+
+      // After successful login, re-initialize the sidebar
+      if (authManager.isLoggedIn()) {
+        const videoId = state.currentVideoId;
+        if (videoId) {
+          const { fetchOwnCitations } = await import('./storage.js');
+          await fetchOwnCitations(videoId);
+          createSidebar(videoId);
+          renderStudioMarkers();
         }
+      } else {
+        signInBtn.disabled = false;
+        signInBtn.innerHTML = originalLabel;
       }
     } catch (err) {
       console.error('[Studio] YouTube sign-in failed:', err);
+      signInBtn.disabled = false;
+      signInBtn.innerHTML = originalLabel;
+      alert(`Sign-in failed: ${err.message || err}`);
     }
   });
 
