@@ -732,22 +732,36 @@
     <p>Sign in with your YouTube account to add citations to your videos.</p>
     <button class="citelines-studio-btn citelines-studio-btn-youtube">&#9654; Sign in with YouTube</button>
   `;
-    prompt.querySelector(".citelines-studio-btn-youtube").addEventListener("click", async () => {
+    const signInBtn = prompt.querySelector(".citelines-studio-btn-youtube");
+    signInBtn.addEventListener("click", async () => {
+      if (!window.loginWithYouTube) {
+        console.error("[Studio] loginWithYouTube unavailable");
+        return;
+      }
+      const originalLabel = signInBtn.innerHTML;
+      signInBtn.disabled = true;
       try {
-        if (window.launchYouTubeOAuth) {
-          await window.launchYouTubeOAuth();
-          if (authManager.isLoggedIn()) {
-            const videoId2 = currentVideoId;
-            if (videoId2) {
-              const { fetchOwnCitations: fetchOwnCitations2 } = await Promise.resolve().then(() => (init_storage(), storage_exports));
-              await fetchOwnCitations2(videoId2);
-              createSidebar(videoId2);
-              renderStudioMarkers();
-            }
+        const anonymousId = await api.initialize();
+        await window.loginWithYouTube(api, authManager, null, anonymousId, (msg) => {
+          signInBtn.textContent = msg;
+        });
+        if (authManager.isLoggedIn()) {
+          const videoId2 = currentVideoId;
+          if (videoId2) {
+            const { fetchOwnCitations: fetchOwnCitations2 } = await Promise.resolve().then(() => (init_storage(), storage_exports));
+            await fetchOwnCitations2(videoId2);
+            createSidebar(videoId2);
+            renderStudioMarkers();
           }
+        } else {
+          signInBtn.disabled = false;
+          signInBtn.innerHTML = originalLabel;
         }
       } catch (err) {
         console.error("[Studio] YouTube sign-in failed:", err);
+        signInBtn.disabled = false;
+        signInBtn.innerHTML = originalLabel;
+        alert(`Sign-in failed: ${err.message || err}`);
       }
     });
     content.appendChild(prompt);

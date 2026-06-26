@@ -99,4 +99,6 @@ async function connectYouTubeChannel(api, authManager, onStatus = null) {
 
   return result;
 }
+window.launchYouTubeOAuth = launchYouTubeOAuth;
+window.loginWithYouTube = loginWithYouTube;
 window.connectYouTubeChannel = connectYouTubeChannel;
