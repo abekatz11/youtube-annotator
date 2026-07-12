@@ -33,17 +33,14 @@
 
 /* Annotation popup */
 .yt-annotator-popup {
-  position: absolute;
-  bottom: 80px;
-  left: 50%;
-  transform: translateX(-50%);
+  position: fixed;
   background: rgba(28, 28, 28, 0.95);
   border: 1px solid #3a3a3a;
   border-radius: 8px;
   padding: 12px;
   min-width: 280px;
   max-width: 400px;
-  z-index: 10003;
+  z-index: 100003;
   font-family: 'Roboto', Arial, sans-serif;
   color: #fff;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
@@ -1566,7 +1563,7 @@ a.yt-annotator-citation-title:hover {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 100002;
+  z-index: 100010;
   font-family: 'Roboto', Arial, sans-serif;
 }
 
@@ -2110,6 +2107,16 @@ a.yt-annotator-citation-title:hover {
   cursor: pointer;
   transition: width 0.15s, opacity 0.15s;
   z-index: 1;
+}
+
+/* Invisible wider hit area so the 2px marker is easier to click */
+.citelines-marker::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  left: -5px;
+  right: -5px;
 }
 
 .citelines-marker:hover {

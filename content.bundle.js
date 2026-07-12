@@ -627,26 +627,38 @@
   function positionPopupNearMarker(popup, markerEl) {
     if (!markerEl) return;
     const markerRect = markerEl.getBoundingClientRect();
-    const timelineEl = document.querySelector(".citelines-timeline");
-    if (!timelineEl) return;
-    const timelineRect = timelineEl.getBoundingClientRect();
     const popupWidth = popup.offsetWidth;
     const popupHeight = popup.offsetHeight;
-    const markerCenterX = markerRect.left + markerRect.width / 2 - timelineRect.left;
-    let popupLeft = markerCenterX - popupWidth / 2;
+    let popupLeft = markerRect.left + markerRect.width / 2 - popupWidth / 2;
     const padding = 8;
-    popupLeft = Math.max(padding, Math.min(popupLeft, timelineRect.width - popupWidth - padding));
-    const popupBottom = timelineRect.bottom - markerRect.top + 8;
-    popup.style.position = "absolute";
+    popupLeft = Math.max(padding, Math.min(popupLeft, window.innerWidth - popupWidth - padding));
+    let popupTop = markerRect.top - popupHeight - 8;
+    if (popupTop < padding) {
+      popupTop = markerRect.bottom + 8;
+    }
     popup.style.left = `${popupLeft}px`;
-    popup.style.bottom = `${popupBottom}px`;
-    popup.style.top = "auto";
-    popup.style.transform = "none";
+    popup.style.top = `${popupTop}px`;
+  }
+  function positionPopupOverTimeline(popup) {
+    const timelineEl = document.querySelector(".citelines-timeline");
+    const anchor = timelineEl || document.querySelector("#movie_player");
+    if (!anchor) return;
+    const anchorRect = anchor.getBoundingClientRect();
+    const popupWidth = popup.offsetWidth;
+    const popupHeight = popup.offsetHeight;
+    let popupLeft = anchorRect.left + anchorRect.width / 2 - popupWidth / 2;
+    const padding = 8;
+    popupLeft = Math.max(padding, Math.min(popupLeft, window.innerWidth - popupWidth - padding));
+    let popupTop = anchorRect.top - popupHeight - 8;
+    if (popupTop < padding) {
+      popupTop = anchorRect.top + padding;
+    }
+    popup.style.left = `${popupLeft}px`;
+    popup.style.top = `${popupTop}px`;
   }
   function showAnnotationPopup(annotation, video, isShared = false, markerEl = null) {
     closePopup();
-    const timelineEl = document.querySelector(".citelines-timeline");
-    const popupContainer = timelineEl || document.querySelector("#movie_player");
+    const popupContainer = document.body;
     if (!popupContainer) return;
     const popup = document.createElement("div");
     popup.className = "yt-annotator-popup";
@@ -670,6 +682,7 @@
     const bookmarkMetaHTML = isBookmark ? `<div class="yt-annotator-bookmark-meta">Only visible to you</div>` : "";
     const suggestionCount = annotation.suggestionCount || 0;
     const suggestionBadgeHTML = !isShared && !isBookmark && suggestionCount > 0 ? `<div class="yt-annotator-suggestion-badge" title="View suggestions">&#128161; ${suggestionCount} suggestion${suggestionCount !== 1 ? "s" : ""}</div>` : "";
+    const suggestBtnHTML = isShared && !isBookmark ? `<button class="yt-annotator-btn yt-annotator-btn-secondary" data-action="suggest">${annotation.userHasSuggestion ? "View My Suggestion" : "Suggest a change"}</button>` : "";
     popup.innerHTML = `
     <div class="yt-annotator-popup-header">
       <span class="yt-annotator-popup-timestamp">${formatTime(annotation.timestamp)}${badge}</span>
@@ -687,6 +700,7 @@
     <div class="yt-annotator-suggestion-detail" style="display: none;"></div>
     <div class="yt-annotator-popup-actions">
       <button class="yt-annotator-btn yt-annotator-btn-secondary" data-action="goto">Go to</button>
+      ${suggestBtnHTML}
     </div>
   `;
     popup.querySelector(".yt-annotator-popup-close").addEventListener("click", closePopup);
@@ -808,13 +822,9 @@
         </button>
       `;
       } else {
-        const suggestLabel = annotation.userHasSuggestion ? "View My Suggestion" : "Suggest a Change";
         menu.innerHTML = `
         <button class="yt-annotator-actions-menu-item" data-menu-action="report">
           <span class="yt-annotator-actions-menu-icon">&#9873;</span> Report
-        </button>
-        <button class="yt-annotator-actions-menu-item" data-menu-action="suggest">
-          <span class="yt-annotator-actions-menu-icon">&#9998;</span> ${suggestLabel}
         </button>
       `;
       }
@@ -831,8 +841,6 @@
             handleDeleteAnnotation(annotation);
           } else if (action === "report") {
             showReportModal(annotation);
-          } else if (action === "suggest") {
-            handleSuggestAction(annotation);
           }
         });
       });
@@ -857,10 +865,21 @@
       video.currentTime = annotation.timestamp;
       closePopup();
     });
+    const suggestBtn = popup.querySelector('[data-action="suggest"]');
+    if (suggestBtn) {
+      suggestBtn.addEventListener("click", () => {
+        handleSuggestAction(annotation);
+      });
+    }
+    popup.style.position = "fixed";
     popupContainer.appendChild(popup);
     setActivePopup(popup);
     applyTheme();
-    positionPopupNearMarker(popup, markerEl);
+    if (markerEl) {
+      positionPopupNearMarker(popup, markerEl);
+    } else {
+      positionPopupOverTimeline(popup);
+    }
   }
   async function handleDeleteAnnotation(annotation) {
     const videoId = getVideoId();

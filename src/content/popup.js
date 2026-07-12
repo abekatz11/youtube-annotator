@@ -24,45 +24,64 @@ export function closePopup() {
   }
 }
 
-// Position popup near a marker in the citation timeline
+// Position popup near a marker in the citation timeline (using fixed positioning)
 function positionPopupNearMarker(popup, markerEl) {
   if (!markerEl) return;
 
   const markerRect = markerEl.getBoundingClientRect();
-  const timelineEl = document.querySelector('.citelines-timeline');
-  if (!timelineEl) return;
-
-  const timelineRect = timelineEl.getBoundingClientRect();
-
-  // Position popup above the marker, centered horizontally on it
   const popupWidth = popup.offsetWidth;
   const popupHeight = popup.offsetHeight;
 
-  // Marker center X relative to timeline
-  const markerCenterX = markerRect.left + markerRect.width / 2 - timelineRect.left;
-  let popupLeft = markerCenterX - popupWidth / 2;
+  // Center popup horizontally on marker
+  let popupLeft = markerRect.left + markerRect.width / 2 - popupWidth / 2;
 
-  // Clamp within timeline bounds with some padding
+  // Clamp within viewport bounds with padding
   const padding = 8;
-  popupLeft = Math.max(padding, Math.min(popupLeft, timelineRect.width - popupWidth - padding));
+  popupLeft = Math.max(padding, Math.min(popupLeft, window.innerWidth - popupWidth - padding));
 
-  // Position above the marker's track
-  const popupBottom = timelineRect.bottom - markerRect.top + 8;
+  // Position above the marker
+  let popupTop = markerRect.top - popupHeight - 8;
 
-  popup.style.position = 'absolute';
+  // If it would go above the viewport, position below the marker instead
+  if (popupTop < padding) {
+    popupTop = markerRect.bottom + 8;
+  }
+
   popup.style.left = `${popupLeft}px`;
-  popup.style.bottom = `${popupBottom}px`;
-  popup.style.top = 'auto';
-  popup.style.transform = 'none';
+  popup.style.top = `${popupTop}px`;
+}
+
+// Position popup centered over the citation timeline (when no marker is specified)
+function positionPopupOverTimeline(popup) {
+  const timelineEl = document.querySelector('.citelines-timeline');
+  const anchor = timelineEl || document.querySelector('#movie_player');
+  if (!anchor) return;
+
+  const anchorRect = anchor.getBoundingClientRect();
+  const popupWidth = popup.offsetWidth;
+  const popupHeight = popup.offsetHeight;
+
+  // Center horizontally over the timeline/player
+  let popupLeft = anchorRect.left + anchorRect.width / 2 - popupWidth / 2;
+  const padding = 8;
+  popupLeft = Math.max(padding, Math.min(popupLeft, window.innerWidth - popupWidth - padding));
+
+  // Position above the timeline
+  let popupTop = anchorRect.top - popupHeight - 8;
+  if (popupTop < padding) {
+    popupTop = anchorRect.top + padding;
+  }
+
+  popup.style.left = `${popupLeft}px`;
+  popup.style.top = `${popupTop}px`;
 }
 
 // Show popup for viewing/editing annotation
 export function showAnnotationPopup(annotation, video, isShared = false, markerEl = null) {
   closePopup();
 
-  // Append popup to the citation timeline if available, otherwise player
-  const timelineEl = document.querySelector('.citelines-timeline');
-  const popupContainer = timelineEl || document.querySelector('#movie_player');
+  // Append popup to document.body with fixed positioning to avoid overflow clipping
+  const popupContainer = document.body;
   if (!popupContainer) return;
 
   const popup = document.createElement('div');
@@ -94,6 +113,12 @@ export function showAnnotationPopup(annotation, video, isShared = false, markerE
     ? `<div class="yt-annotator-suggestion-badge" title="View suggestions">&#128161; ${suggestionCount} suggestion${suggestionCount !== 1 ? 's' : ''}</div>`
     : '';
 
+  // "Suggest a change" is a first-class action button (not buried in the ⋮ menu)
+  // for other users' citations.
+  const suggestBtnHTML = (isShared && !isBookmark)
+    ? `<button class="yt-annotator-btn yt-annotator-btn-secondary" data-action="suggest">${annotation.userHasSuggestion ? 'View My Suggestion' : 'Suggest a change'}</button>`
+    : '';
+
   popup.innerHTML = `
     <div class="yt-annotator-popup-header">
       <span class="yt-annotator-popup-timestamp">${formatTime(annotation.timestamp)}${badge}</span>
@@ -111,6 +136,7 @@ export function showAnnotationPopup(annotation, video, isShared = false, markerE
     <div class="yt-annotator-suggestion-detail" style="display: none;"></div>
     <div class="yt-annotator-popup-actions">
       <button class="yt-annotator-btn yt-annotator-btn-secondary" data-action="goto">Go to</button>
+      ${suggestBtnHTML}
     </div>
   `;
 
@@ -245,13 +271,9 @@ export function showAnnotationPopup(annotation, video, isShared = false, markerE
         </button>
       `;
     } else {
-      const suggestLabel = annotation.userHasSuggestion ? 'View My Suggestion' : 'Suggest a Change';
       menu.innerHTML = `
         <button class="yt-annotator-actions-menu-item" data-menu-action="report">
           <span class="yt-annotator-actions-menu-icon">&#9873;</span> Report
-        </button>
-        <button class="yt-annotator-actions-menu-item" data-menu-action="suggest">
-          <span class="yt-annotator-actions-menu-icon">&#9998;</span> ${suggestLabel}
         </button>
       `;
     }
@@ -271,8 +293,6 @@ export function showAnnotationPopup(annotation, video, isShared = false, markerE
           handleDeleteAnnotation(annotation);
         } else if (action === 'report') {
           showReportModal(annotation);
-        } else if (action === 'suggest') {
-          handleSuggestAction(annotation);
         }
       });
     });
@@ -302,11 +322,23 @@ export function showAnnotationPopup(annotation, video, isShared = false, markerE
     closePopup();
   });
 
+  const suggestBtn = popup.querySelector('[data-action="suggest"]');
+  if (suggestBtn) {
+    suggestBtn.addEventListener('click', () => {
+      handleSuggestAction(annotation);
+    });
+  }
+
+  popup.style.position = 'fixed';
   popupContainer.appendChild(popup);
   state.setActivePopup(popup);
   applyTheme();
 
-  positionPopupNearMarker(popup, markerEl);
+  if (markerEl) {
+    positionPopupNearMarker(popup, markerEl);
+  } else {
+    positionPopupOverTimeline(popup);
+  }
 }
 
 // Delete annotation handler
