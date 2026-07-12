@@ -96,8 +96,18 @@ function renderSignInPrompt(content) {
 
   const signInBtn = prompt.querySelector('.citelines-studio-btn-youtube');
   signInBtn.addEventListener('click', async () => {
+    console.log('[Studio] Sign-in button clicked');
+
+    // Detect an orphaned content script (extension was reloaded/updated while
+    // this tab stayed open). chrome.runtime.id is undefined once invalidated.
+    if (!chrome.runtime?.id) {
+      alert('Citelines was updated in the background. Please refresh this page and try again.');
+      return;
+    }
+
     if (!window.loginWithYouTube) {
       console.error('[Studio] loginWithYouTube unavailable');
+      alert('Sign-in is unavailable — the extension may not have loaded fully. Please refresh this page and try again.');
       return;
     }
     const originalLabel = signInBtn.innerHTML;
@@ -105,6 +115,7 @@ function renderSignInPrompt(content) {
     try {
       // Full login flow: OAuth + backend /api/auth/youtube + token storage.
       // Mirrors loginUI.handleYouTubeAuth on the watch page.
+      console.log('[Studio] Starting OAuth flow...');
       const anonymousId = await api.initialize();
       await window.loginWithYouTube(api, authManager, null, anonymousId, (msg) => {
         signInBtn.textContent = msg;

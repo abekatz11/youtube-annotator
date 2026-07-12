@@ -734,13 +734,20 @@
   `;
     const signInBtn = prompt.querySelector(".citelines-studio-btn-youtube");
     signInBtn.addEventListener("click", async () => {
+      console.log("[Studio] Sign-in button clicked");
+      if (!chrome.runtime?.id) {
+        alert("Citelines was updated in the background. Please refresh this page and try again.");
+        return;
+      }
       if (!window.loginWithYouTube) {
         console.error("[Studio] loginWithYouTube unavailable");
+        alert("Sign-in is unavailable \u2014 the extension may not have loaded fully. Please refresh this page and try again.");
         return;
       }
       const originalLabel = signInBtn.innerHTML;
       signInBtn.disabled = true;
       try {
+        console.log("[Studio] Starting OAuth flow...");
         const anonymousId = await api.initialize();
         await window.loginWithYouTube(api, authManager, null, anonymousId, (msg) => {
           signInBtn.textContent = msg;
