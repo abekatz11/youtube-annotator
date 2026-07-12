@@ -294,11 +294,16 @@ class User {
   static async updatePassword(userId, newPassword) {
     const passwordHash = await hashPassword(newPassword);
 
+    // Completing a password reset proves the user controls the account's
+    // email (the reset token was emailed to it), so mark the email verified.
     const query = `
       UPDATE users
       SET password_hash = $1,
           password_reset_token = NULL,
-          password_reset_expires = NULL
+          password_reset_expires = NULL,
+          email_verified = true,
+          email_verification_token = NULL,
+          email_verification_expires = NULL
       WHERE id = $2
     `;
 
